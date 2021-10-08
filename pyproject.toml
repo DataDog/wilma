@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "wilma"
+version = "0.1.0"
+description = "A smarter-than-caveman debugging tool"
+authors = ["Gabriele Tornetta <gabriele.tornetta@datadoghq.com>"]
+license = "GPL3+"
+packages = [
+    {include = "wilma"},
+]
+
+[tool.poetry.dependencies]
+ddtrace = { git = "https://github.com/datadog/slydog-dd-trace-py.git", branch = "gabriele.tornetta/debugger" }
+python = "^3.7"
+toml = "^0.10.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
+
+[tool.poetry.scripts]
+wilma = "wilma.__main__:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
