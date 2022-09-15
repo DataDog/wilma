@@ -1,0 +1,6 @@
+[probes]
+"target.py:6" = """print(f'secret="{secret}"')"""
+"target.py:14" = """print(f'class secret="{self.__secret__}"')"""
+
+"sub/importme.py:6" = """print(f'imported secret="{SECRET}"')"""
+"sub/importme.py:14" = """print(f'imported class secret="{self.__secret__}"')"""

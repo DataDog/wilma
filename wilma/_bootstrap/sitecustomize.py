@@ -1,7 +1,7 @@
 import os
 import sys
 
-from wilma._bootstrap import init  # noqa
+import preload  # noqa
 
 # Check for and import any sitecustomize that would have normally been used
 bootstrap_dir = os.path.abspath(os.path.dirname(__file__))

@@ -1,18 +1,33 @@
-import os
 import typing as t
+from pathlib import Path
 
 import toml
-
-WILMAFILE_NAME = "wilma.toml"
-
-
-def get_path():
-    # type: () -> t.Optional[str]
-    """Determine the path of the Wilma file.
-
-    Returns ``None`` if the file was not found."""
-    path = os.getenv("_WILMAFILE") or os.path.join(os.getcwd(), WILMAFILE_NAME)
-    return path if os.path.isfile(path) else None
+from envier import En
 
 
-load = toml.load  # TODO: Expand to do validation
+def validate_wilmafile(wilmafile: Path) -> None:
+    if not wilmafile.exists():
+        raise ValueError("No Wilma file found.")
+
+
+class WilmaConfig(En):
+    wilmafile = En.v(
+        Path,
+        "wilmafile",
+        validator=validate_wilmafile,
+        default=Path("wilma.toml"),
+    )
+
+    wilmaprefix = En.v(
+        Path,
+        "wilmaprefix",
+        default=Path(".wilma"),
+    )
+
+    venv = En.v(
+        t.Optional[Path],
+        "virtual_env",
+        default=None,
+    )
+
+    wilmaconfig = En.d(dict, lambda c: toml.loads(c.wilmafile.read_text()))

@@ -1,37 +1,41 @@
 import os
+from pathlib import Path
 
-from wilma._config import WILMAFILE_NAME, get_path, load
+import pytest
+
+from wilma._config import WilmaConfig
 
 
-def test_get_path_cwd(tmp_path):
-    wilmafile = tmp_path / WILMAFILE_NAME
+def test_wilmafile_cwd(tmp_path):
+    wilmafile = tmp_path / WilmaConfig.wilmafile.default.name
     wilmafile.write_text("imports = []")
 
-    cwd = os.getcwd()
+    cwd = Path.cwd()
     os.chdir(tmp_path)
 
-    assert get_path() == os.path.join(os.getcwd(), WILMAFILE_NAME)
+    assert WilmaConfig().wilmafile == WilmaConfig.wilmafile.default
 
     os.chdir(cwd)
 
 
 def test_get_path_env_invalid_file(monkeypatch):
-    monkeypatch.setenv("_WILMAFILE", os.path.join("foo", "bar.yaml"))
+    monkeypatch.setenv("WILMAFILE", os.path.join("foo", "bar.yaml"))
 
-    assert get_path() is None
+    with pytest.raises(ValueError):
+        assert WilmaConfig()
 
 
 def test_get_path_env_valid_file(monkeypatch, tmp_path):
-    wilmafile = tmp_path / WILMAFILE_NAME
+    wilmafile = tmp_path / WilmaConfig.wilmafile.default.name
     wilmafile.write_text("imports = []")
-    monkeypatch.setenv("_WILMAFILE", str(wilmafile))
+    monkeypatch.setenv("WILMAFILE", str(wilmafile))
 
-    assert get_path() == str(wilmafile)
+    assert WilmaConfig().wilmafile == wilmafile
 
 
 def test_load(monkeypatch, tmp_path):
-    wilmafile = tmp_path / WILMAFILE_NAME
+    wilmafile = tmp_path / WilmaConfig.wilmafile.default
     wilmafile.write_text("imports = []")
-    monkeypatch.setenv("_WILMAFILE", str(wilmafile))
+    monkeypatch.setenv("WILMAFILE", str(wilmafile))
 
-    assert load(get_path()) == {"imports": []}
+    assert WilmaConfig().wilmaconfig == {"imports": []}

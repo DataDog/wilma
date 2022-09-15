@@ -41,9 +41,9 @@ def main():
     executable = args.command[0]
     env = dict(os.environ)
     if args.config:
-        env["_WILMAFILE"] = args.config
+        env["WILMAFILE"] = args.config
     if args.prefix:
-        env["_WILMAPREFIX"] = args.prefix
+        env["WILMAPREFIX"] = args.prefix
 
     python_path = env.get("PYTHONPATH")
     env["PYTHONPATH"] = (
@@ -51,8 +51,6 @@ def main():
         if python_path
         else bootstrap_dir
     )
-    # DEV: This is currently required by ddtrace.debugger
-    env["DD_API_KEY"] = "0"
 
     try:
         os.execvpe(executable, args.command, env)  # TODO: Cross-platform?

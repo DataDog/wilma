@@ -1,30 +1,25 @@
-from subprocess import PIPE, check_output
-
-from wilma._config import WILMAFILE_NAME
-
-
-def test_probe_main(tmp_path):
-    test_script = tmp_path / "test.py"
-    test_script.write_text(
-        """
-def foo(secret):
-    print("I'm not telling you the secret!")
-    return None
+import sys
+from pathlib import Path
+from subprocess import PIPE
+from subprocess import check_output
 
 
-foo("Wilma rox!")
-"""
-    )
-
-    wilmafile = tmp_path / WILMAFILE_NAME
-    wilmafile.write_text(
-        """
-[probes]
-"test.py:4" = "print('secret =', secret)"
-"""
+def test_probe_main():
+    result = check_output(
+        ["wilma", sys.executable, "-m", "target"],
+        stderr=PIPE,
+        cwd=str(Path(__file__).parent),
     )
 
     assert (
-        check_output(["wilma", "python", "-m", "test"], stderr=PIPE, cwd=str(tmp_path))
-        == b"I'm not telling you the secret!\nsecret = Wilma rox!\n"
-    )
+        result
+        == b"""I'm not telling you the secret!
+secret="Wilma rox!"
+I'm not telling you the class secret!
+class secret="I'm a class secret!"
+I'm not telling you the imported secret!
+imported secret="I'm an imported secret!"
+I'm not telling you the imported class secret!
+imported class secret="I'm an imported class secret!"
+"""
+    ), result

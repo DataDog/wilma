@@ -1,4 +1,3 @@
-# NOTE: This code gets run in the sitecustomize script
 import atexit
 import logging
 import os
@@ -7,9 +6,13 @@ import sys
 from contextlib import contextmanager
 from subprocess import check_output
 
-from ddtrace.debugger._module import ModuleWatchdog
-from wilma import _config
-from wilma._inject import after_import
+import run_module  # noqa
+from ddtrace.internal.module import ModuleWatchdog
+
+from wilma._config import WilmaConfig
+from wilma._inject import Probe
+from wilma._inject import on_import
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,21 +31,16 @@ class WilmaException(Exception):
 
 
 try:
-    # Load the configuration
-    config_path = _config.get_path()
-    if config_path is None:
-        LOGGER.warn("No Wilma configuration file found.")
-        raise WilmaException()
-
-    config = _config.load(config_path)
+    wilmaenv = WilmaConfig()
+    config = wilmaenv.wilmaconfig
 
     # Install dependencies in prefix
     deps = config.get("dependencies")
     if deps:
-        prefix = os.path.abspath(os.getenv("_WILMAPREFIX") or ".wilma")
+        prefix = wilmaenv.wilmaprefix
         pyexe = (
             "python"
-            if os.getenv("VIRTUAL_ENV") is not None
+            if wilmaenv.venv is not None
             else "python{}.{}".format(*sys.version_info[:2])
         )
 
@@ -61,9 +59,8 @@ try:
 
         # Remove our custom sitecustomize from the env to avoid running pip
         # forever.
-
-        if os.path.pathsep in env.get("PYTHONPATH"):
-            _, _, pythonpath = env.get("PYTHONPATH").partition(os.path.pathsep)
+        if os.path.pathsep in env.get("PYTHONPATH", ""):
+            _, _, pythonpath = env.get("PYTHONPATH", "").partition(os.path.pathsep)
             env["PYTHONPATH"] = pythonpath
         else:
             env["PYTHONPATH"] = ""
@@ -75,23 +72,29 @@ try:
 
     # Import the requested modules
     imports = config.get("imports")
-    import_string = "\n".join(f"import {imp}" for imp in imports) if imports else ""
 
     # Install module watchdog
-    ModuleWatchdog.install(on_run_module=True)
+    try:
+        ModuleWatchdog.install()
+    except RuntimeError:
+        pass
     atexit.register(ModuleWatchdog.uninstall)
 
+    seen_locs = set()
     with cwd():
         # Parse and apply probes
         for probe, statement in config["probes"].items():
             loc, _, line = probe.rpartition(":")
             lineno = int(line)
-            try:
-                ModuleWatchdog.register_hook(
-                    loc, after_import, (lineno, "\n".join((import_string, statement)))
-                )
-            except ValueError:
-                print("wilma: source file '%s' not found. Skipping probe." % loc)
+
+            Probe(loc, lineno, statement, imports)
+
+            if loc not in seen_locs:
+                seen_locs.add(loc)
+                try:
+                    ModuleWatchdog.register_origin_hook(loc, on_import)
+                except ValueError:
+                    print("wilma: source file '%s' not found. Skipping probe." % loc)
 
 except WilmaException:
     pass
