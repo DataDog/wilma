@@ -33,10 +33,13 @@ class WilmaException(Exception):
 
 try:
     wilmaenv = WilmaConfig()
-    config = wilmaenv.wilmaconfig
-
+    if wilmaenv.verbose:
+        logging.basicConfig(level=logging.INFO)
     wilmaenv.wilmaprefix.mkdir(exist_ok=True)
 
+    config = wilmaenv.wilmaconfig
+
+    LOGGER.info("Reading metadata ...")
     metadata = (
         json.loads(wilmaenv.metadata_path.read_text())
         if wilmaenv.metadata_path.exists()
@@ -49,7 +52,10 @@ try:
         for p, v in config.get("dependencies", {}).items()
     }
     installed_deps = set(metadata.get("dependencies", []))
-    if not deps <= installed_deps:
+    new_deps = list(deps - installed_deps)
+
+    if new_deps:
+        LOGGER.info("Installing new dependencies: %s", new_deps)
         pyexe = (
             "python"
             if wilmaenv.venv is not None
@@ -66,7 +72,7 @@ try:
             "--no-input",
             "--no-python-version-warning",
         ]
-        args += list(deps - installed_deps)
+        args += new_deps
         env = dict(os.environ)
 
         # Remove our custom sitecustomize from the env to avoid running pip
@@ -93,23 +99,29 @@ try:
         pass
     atexit.register(ModuleWatchdog.uninstall)
 
-    seen_locs = set()
-    with cwd():
-        # Parse and apply probes
-        for probe, statement in config["probes"].items():
-            loc, _, line = probe.rpartition(":")
-            lineno = int(line)
+    # Parse and apply probes
+    probes = config.get("probes", {})
+    if probes:
+        LOGGER.info("Injecting statements ...")
+        seen_locs = set()
+        with cwd():
+            for probe, statement in probes.items():
+                loc, _, line = probe.rpartition(":")
+                lineno = int(line)
 
-            Probe(loc, lineno, statement, imports)
+                Probe(loc, lineno, statement, imports)
 
-            if loc not in seen_locs:
-                seen_locs.add(loc)
-                try:
-                    ModuleWatchdog.register_origin_hook(loc, on_import)
-                except ValueError:
-                    print("wilma: source file '%s' not found. Skipping probe." % loc)
+                if loc not in seen_locs:
+                    seen_locs.add(loc)
+                    try:
+                        ModuleWatchdog.register_origin_hook(loc, on_import)
+                    except ValueError:
+                        print(
+                            "wilma: source file '%s' not found. Skipping probe." % loc
+                        )
 
     # Save metadata
+    LOGGER.info("Writing metadata ...")
     wilmaenv.metadata_path.write_text(json.dumps(metadata))
 
 except WilmaException:

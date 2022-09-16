@@ -26,7 +26,16 @@ def main():
         type=str,
     )
     parser.add_argument(
-        "-V", "--version", action="version", version="%(prog)s " + __version__
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging",
+    )
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version="%(prog)s " + __version__,
     )
     args = parser.parse_args()
 
@@ -44,6 +53,8 @@ def main():
         env["WILMAFILE"] = args.config
     if args.prefix:
         env["WILMAPREFIX"] = args.prefix
+    if args.verbose:
+        env["WILMAVERBOSE"] = "1"
 
     python_path = env.get("PYTHONPATH")
     env["PYTHONPATH"] = (

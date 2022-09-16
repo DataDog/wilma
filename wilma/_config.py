@@ -30,5 +30,11 @@ class WilmaConfig(En):
         default=None,
     )
 
+    verbose = En.v(
+        bool,
+        "wilmaverbose",
+        default=False,
+    )
+
     wilmaconfig = En.d(dict, lambda c: toml.loads(c.wilmafile.read_text()))
     metadata_path = En.d(Path, lambda c: c.wilmaprefix / "metadata.json")
