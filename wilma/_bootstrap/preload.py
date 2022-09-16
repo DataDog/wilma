@@ -1,4 +1,5 @@
 import atexit
+import json
 import logging
 import os
 import site
@@ -34,10 +35,21 @@ try:
     wilmaenv = WilmaConfig()
     config = wilmaenv.wilmaconfig
 
+    wilmaenv.wilmaprefix.mkdir(exist_ok=True)
+
+    metadata = (
+        json.loads(wilmaenv.metadata_path.read_text())
+        if wilmaenv.metadata_path.exists()
+        else {}
+    )
+
     # Install dependencies in prefix
-    deps = config.get("dependencies")
-    if deps:
-        prefix = wilmaenv.wilmaprefix
+    deps = {
+        f"{p}{v.replace('latest', '')}"
+        for p, v in config.get("dependencies", {}).items()
+    }
+    installed_deps = set(metadata.get("dependencies", []))
+    if not deps <= installed_deps:
         pyexe = (
             "python"
             if wilmaenv.venv is not None
@@ -50,11 +62,11 @@ try:
             "pip",
             "install",
             "--prefix",
-            prefix,
+            wilmaenv.wilmaprefix,
             "--no-input",
             "--no-python-version-warning",
         ]
-        args += [f"{p}{v.replace('latest', '')}" for p, v in deps.items()]
+        args += list(deps - installed_deps)
         env = dict(os.environ)
 
         # Remove our custom sitecustomize from the env to avoid running pip
@@ -66,9 +78,10 @@ try:
             env["PYTHONPATH"] = ""
         check_output(args, env=env)
 
-        (sitepkg,) = site.getsitepackages([prefix])
+        metadata["dependencies"] = list(deps | installed_deps)
 
-        sys.path.insert(0, sitepkg)
+    if deps:
+        sys.path.insert(0, *site.getsitepackages([wilmaenv.wilmaprefix]))
 
     # Import the requested modules
     imports = config.get("imports")
@@ -95,6 +108,9 @@ try:
                     ModuleWatchdog.register_origin_hook(loc, on_import)
                 except ValueError:
                     print("wilma: source file '%s' not found. Skipping probe." % loc)
+
+    # Save metadata
+    wilmaenv.metadata_path.write_text(json.dumps(metadata))
 
 except WilmaException:
     pass
