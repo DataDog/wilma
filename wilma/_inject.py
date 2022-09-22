@@ -26,7 +26,7 @@ class Probe:
         self.imports = imports or []
 
         self._statement = "\n".join(
-            ("\n".join(f"import {imp}" for imp in self.imports), statement)
+            ("\n".join(f"import {imp}" for imp in ("wilma", *self.imports)), statement)
         )
 
         self.__all__.add(self)

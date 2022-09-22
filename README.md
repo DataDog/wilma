@@ -76,4 +76,27 @@ By default, Wilma looks for the file `wilma.toml` in the current working
 directory. You can specify a custom Wilma file with the `-c/--config` option.
 
 
+## Tools
+
+Wilma comes with a set of useful tools to quickly perform debug operations. For
+example, to change the value of the `secret` local variable, you can use the
+following configuration
+
+~~~ toml
+# File: wilma.toml
+[probes]
+"test.py:3" = """
+with wilma.locals() as ls:
+    ls["secret"] = "new secret"
+"""
+"test.py:4" = "print('The secret is: ', secret)"
+~~~
+
+When you run the `test` module you should now see `new secret` instead of the
+original value.
+
+> The `wilma` module is imported automatically, so there is no need to add it
+> explicitly to the imports.
+
+
 [caveman]: https://medium.com/@firhathidayat/the-caveman-debugging-ab8f7151415f

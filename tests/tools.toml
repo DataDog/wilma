@@ -1,0 +1,6 @@
+[probes]
+"target.py:5" = """
+with wilma.locals() as ls:
+    ls["secret"] = "new secret"
+"""
+"target.py:6" = """print(f'secret="{secret}"')"""
