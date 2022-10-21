@@ -1,0 +1,2 @@
+[probes]
+"target.py:5" = "wilma.framestack('Hello framestack')"
