@@ -1,0 +1,4 @@
+[probes]
+"target_watch.py:6"="""
+with wilma.locals() as ls: ls["word"] = "foo"
+"""

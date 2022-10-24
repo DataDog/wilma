@@ -40,6 +40,7 @@ def transform_code(code: CodeType, module_origin: str) -> CodeType:
         # We inject the hook only if the probe is on a line that belongs to this
         # code object.
         _inject_hook(acode, _wilma, probe.lineno, probe)
+        Probe.__injected__.add(probe)
 
     # Scan all the instructions to find any code objects in the arguments that
     # we should recurse upon to make sure that we look at the whole run module.

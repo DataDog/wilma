@@ -21,8 +21,9 @@ def test_wilmafile_cwd(tmp_path):
 def test_get_path_env_invalid_file(monkeypatch):
     monkeypatch.setenv("WILMAFILE", os.path.join("foo", "bar.yaml"))
 
-    with pytest.raises(ValueError):
-        assert WilmaConfig()
+    c = WilmaConfig()
+    assert not c.wilmafile.exists()
+    assert c.wilmaconfig == {}
 
 
 def test_get_path_env_valid_file(monkeypatch, tmp_path):
