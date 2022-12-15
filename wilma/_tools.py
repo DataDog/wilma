@@ -8,9 +8,9 @@ from wilma._inject import Probe
 
 
 @contextlib.contextmanager
-def locals() -> t.Dict:
+def locals() -> t.Generator[t.Dict[str, t.Any], None, None]:
     """Context manager for mutating local variables."""
-    frame = sys._getframe().f_back.f_back.f_back.f_back.f_back
+    frame = sys._getframe(5)
 
     yield frame.f_locals
 
@@ -23,9 +23,8 @@ def framestack(message: t.Optional[str] = None) -> None:
 
     An optional argument to print at the end can also be passed to this helper.
     """
-    frame = sys._getframe()
-    probe_frame = frame.f_back.f_back
-    caller_frame = probe_frame.f_back.f_back
+    probe_frame = sys._getframe(2)
+    caller_frame = sys._getframe(4)
 
     probe: Probe = probe_frame.f_locals["self"]
 
