@@ -46,7 +46,6 @@ def foo(secret):
 foo("Wilma rox!")
 ~~~
 
-
 There is no way of knowing what was passed to the function when it is called by
 just looking at its output:
 
@@ -55,8 +54,8 @@ $ python -m test
 I'm not telling you the secret!
 ~~~
 
- So we can use Wilma to inject a print statement at
-the beginning of line 4 that prints the value of the `secret` argument:
+So we can use Wilma to inject a print statement at the beginning of line 4 that
+prints the value of the `secret` argument:
 
 ~~~ toml
 # File: wilma.toml
@@ -74,6 +73,10 @@ The secret is: Wilma rox!
 
 By default, Wilma looks for the file `wilma.toml` in the current working
 directory. You can specify a custom Wilma file with the `-c/--config` option.
+
+> **NOTE** Wilma should be installed within the same environment of the target
+> application to work properly. For examole, you may want to list Wilma amongst
+> the developent dependencies of your project.
 
 
 ## Tools

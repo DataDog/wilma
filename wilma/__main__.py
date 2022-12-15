@@ -56,7 +56,7 @@ def main():
     if args.verbose:
         env["WILMAVERBOSE"] = "1"
 
-    python_path = os.path.pathsep.join(sys.path)
+    python_path = os.getenv("PYTHONPATH")
     env["PYTHONPATH"] = (
         os.path.pathsep.join((bootstrap_dir, python_path))
         if python_path
