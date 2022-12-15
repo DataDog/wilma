@@ -1,3 +1,5 @@
+<p align="center"><img src="art/wilma.png"/></p>
+
 <h1 align="center">Wilma</h1>
 <h3 align="center">Smarter-than-caveman debugging</h3>
 
