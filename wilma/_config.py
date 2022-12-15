@@ -70,4 +70,3 @@ class WilmaConfig(En):
 
 
 wilmaenv = WilmaConfig()
-    

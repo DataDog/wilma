@@ -11,7 +11,7 @@ from ddtrace.debugging._debugger import DebuggerModuleWatchdog
 
 from wilma._config import wilmaenv
 from wilma._inject import on_config_changed
-from wilma._tools import registerCaptureOutput
+from wilma._tools import _register_capture_output
 
 
 LOGGER = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ try:
     wilmaenv.wilmaprefix.mkdir(exist_ok=True)
 
     # Register capture output
-    registerCaptureOutput(FileAppender(wilmaenv.captures_path))
+    _register_capture_output(FileAppender(wilmaenv.captures_path))
 
     # Listen for changes to the Wilma file
     wilmaenv.observe(on_config_changed)

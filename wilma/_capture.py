@@ -4,6 +4,7 @@ import sys
 import threading
 from types import FrameType
 from typing import (Any, Dict, Type)
+from ddtrace.debugging._encoding import (_get_fields, _qualname)
 from ddtrace.internal.compat import BUILTIN_CONTAINER_TYPES
 from ddtrace.internal.compat import BUILTIN_SIMPLE_TYPES
 from ddtrace.internal.safety import get_slots
@@ -17,51 +18,6 @@ MAXSIZE = 100
 MAXLEN = 255
 MAXFIELDS = 20
 MAXOBJECTS = 500
-
-@cached()
-def _qualname(_type):
-    # type: (Type) -> str
-    try:
-        return str(_type.__qualname__)
-    except AttributeError:
-        # The logic for implementing qualname in Python 2 is complex, so if we
-        # don't have it, we just return the name of the type.
-        try:
-            return _type.__name__
-        except AttributeError:
-            return repr(_type)
-
-
-@cached()
-def _has_safe_dict(_type):
-    # type: (Type) -> bool
-    try:
-        return type(object.__getattribute__(_type, "__dict__").get("__dict__")) is GetSetDescriptor
-    except AttributeError:
-        return False
-
-
-def _safe_getattr(obj, name):
-    # type: (Any, str) -> Any
-    try:
-        return object.__getattribute__(obj, name)
-    except Exception as e:
-        return e
-
-def _safe_dict(o):
-    # type: (Any) -> Dict[str, Any]
-    if _has_safe_dict(type(o)):
-        return object.__getattribute__(o, "__dict__")
-    raise AttributeError("No safe __dict__ attribute")
-
-def get_fields(obj):
-    # type: (Any) -> Dict[str, Any]
-    try:
-        return _safe_dict(obj)
-    except AttributeError:
-        # Check for slots
-        return {s: _safe_getattr(obj, s) for s in get_slots(obj)}
-
 
 class CaptureContext:
     def __init__(self, frame: FrameType=None, level=MAXLEVEL, maxlen=MAXLEN, maxsize=MAXSIZE, maxfields=MAXFIELDS, maxobjects=MAXOBJECTS):
@@ -161,7 +117,7 @@ class CaptureContext:
 
             return (data, to_capture)
 
-        fields = get_fields(value)
+        fields = _get_fields(value)
         data = {
             "id": _id,
             "type": _qualname(_type),

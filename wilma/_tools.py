@@ -44,7 +44,7 @@ def framestack(message: t.Optional[str] = None) -> None:
 _watches = {}
 _captureOutputs: t.List[t.Callable] = []
 
-def registerCaptureOutput(callback: t.Callable):
+def _register_capture_output(callback: t.Callable):
     _captureOutputs.append(callback)
 
 
