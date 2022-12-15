@@ -2,14 +2,17 @@ import sys
 from pathlib import Path
 from subprocess import PIPE
 from subprocess import check_output
+from threading import Thread
+from time import sleep
 
 
 HERE = Path(__file__).parent
+EXE = "wilma.exe" if sys.platform == "win32" else "wilma"
 
 
 def test_probe_main():
     result = check_output(
-        ["wilma", sys.executable, "-m", "target"],
+        [EXE, sys.executable, "-m", "target"],
         stderr=PIPE,
         cwd=str(HERE),
     )
@@ -31,7 +34,7 @@ imported class secret="I'm an imported class secret!"
 def test_tools_locals():
     result = check_output(
         [
-            "wilma",
+            EXE,
             "-c",
             str(HERE / "tools" / "locals.toml"),
             sys.executable,
@@ -56,7 +59,7 @@ I'm not telling you the imported class secret!
 def test_tools_framestack():
     result = check_output(
         [
-            "wilma",
+            EXE,
             "-c",
             str(HERE / "tools" / "framestack.toml"),
             sys.executable,
@@ -85,3 +88,32 @@ I'm not telling you the imported secret!
 I'm not telling you the imported class secret!
 """
     ), result
+
+
+def test_wilmafile_watch(tmp_path):
+    wilmafile_content = (HERE / "watch.toml").read_text()
+    wilmafile = tmp_path / "watch.toml"
+    wilmafile.write_text(wilmafile_content)
+
+    writer = Thread(
+        target=lambda: sleep(1)
+        or wilmafile.write_text(wilmafile_content.replace("foo", "bar"))
+    )
+    writer.start()
+
+    result = check_output(
+        [
+            EXE,
+            "-c",
+            str(wilmafile),
+            sys.executable,
+            "-m",
+            "target_watch",
+        ],
+        stderr=PIPE,
+        cwd=str(HERE),
+    ).decode()
+
+    writer.join()
+
+    assert "foo" in result and "bar" in result, result
