@@ -3,8 +3,10 @@ import ctypes
 import sys
 import traceback
 import typing as t
+import weakref
 
 from wilma._inject import Probe
+from wilma._capture import CaptureContext
 
 
 @contextlib.contextmanager
@@ -36,3 +38,26 @@ def framestack(message: t.Optional[str] = None) -> None:
 
     if message is not None:
         print(message)
+
+
+_watches = {}
+_captureOutputs: t.List[t.Callable] = []
+
+def _register_capture_output(callback: t.Callable):
+    _captureOutputs.append(callback)
+
+
+def watch(name: str, value: t.Any):
+    _watches[name] = value
+    weakref.finalize(value, lambda name: _watches.pop(name,None) , name)
+
+
+def capture():
+    frame = sys._getframe(4) #get caller frame
+    context = CaptureContext(frame)
+    for name,w in _watches:
+        context.add_watch(name, w)
+    context.capture()
+    capture = context.to_json()
+    for output in _captureOutputs:
+        output(capture)

@@ -57,6 +57,7 @@ class WilmaConfig(En):
         lambda c: toml.loads(c.wilmafile.read_text()) if c.wilmafile.exists() else {},
     )
     metadata_path = En.d(Path, lambda c: c.wilmaprefix / "metadata.json")
+    captures_path = En.d(Path, lambda c: c.wilmaprefix / "captures.log")
 
     observer = En.d(Observer, lambda _: Observer())
 
