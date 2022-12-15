@@ -1,22 +1,24 @@
-from itertools import chain
+from itertools import chain, islice
 import os
 import sys
 import threading
 from types import FrameType
-from typing import (Any, Dict, List, Set, Tuple, Type, Union)
+from typing import (Any, Dict, Type)
+from ddtrace.internal.compat import BUILTIN_CONTAINER_TYPES
+from ddtrace.internal.compat import BUILTIN_SIMPLE_TYPES
+from ddtrace.internal.safety import get_slots
+from ddtrace.internal.utils.cache import cached
 
 NoneType = type(None)
 GetSetDescriptor = type(type.__dict__["__dict__"])  # type: ignore[index]
 
-MAXLEVEL = 2
+MAXLEVEL = 10
 MAXSIZE = 100
 MAXLEN = 255
 MAXFIELDS = 20
+MAXOBJECTS = 500
 
-BUILTIN_SIMPLE_TYPES = frozenset([int, float, str, bytes, bool, NoneType, type])
-BUILTIN_CONTAINER_TYPES = frozenset([list, tuple, dict, set])
-BUILTIN_TYPES = BUILTIN_SIMPLE_TYPES | BUILTIN_CONTAINER_TYPES
-
+@cached()
 def _qualname(_type):
     # type: (Type) -> str
     try:
@@ -29,13 +31,46 @@ def _qualname(_type):
         except AttributeError:
             return repr(_type)
 
+
+@cached()
+def _has_safe_dict(_type):
+    # type: (Type) -> bool
+    try:
+        return type(object.__getattribute__(_type, "__dict__").get("__dict__")) is GetSetDescriptor
+    except AttributeError:
+        return False
+
+
+def _safe_getattr(obj, name):
+    # type: (Any, str) -> Any
+    try:
+        return object.__getattribute__(obj, name)
+    except Exception as e:
+        return e
+
+def _safe_dict(o):
+    # type: (Any) -> Dict[str, Any]
+    if _has_safe_dict(type(o)):
+        return object.__getattribute__(o, "__dict__")
+    raise AttributeError("No safe __dict__ attribute")
+
+def get_fields(obj):
+    # type: (Any) -> Dict[str, Any]
+    try:
+        return _safe_dict(obj)
+    except AttributeError:
+        # Check for slots
+        return {s: _safe_getattr(obj, s) for s in get_slots(obj)}
+
+
 class CaptureContext:
-    def __init__(self, frame: FrameType=None, level=MAXLEVEL, maxlen=MAXLEN, maxsize=MAXSIZE, maxfields=MAXFIELDS):
+    def __init__(self, frame: FrameType=None, level=MAXLEVEL, maxlen=MAXLEN, maxsize=MAXSIZE, maxfields=MAXFIELDS, maxobjects=MAXOBJECTS):
         self.frame = frame or sys._getframe(1)
         self.maxlevel = level
         self.maxlen = maxlen
         self.maxsize = maxsize
         self.maxfields = maxfields
+        self.maxobjects = maxobjects
 
         self._locals = {name: id(item) for (name,item) in frame.f_locals.items()}
         self._watches = {}
@@ -86,23 +121,24 @@ class CaptureContext:
                 }, [])
 
             if _type is dict:
+                items = list(islice(value.items(),self.maxsize))
                 # Mapping
                 data = {
                     "id": _id, 
                     "type": "dict",
                     "entries": [
                         (
-                            id(k),
-                            id(v),
+                            id(item[0]),
+                            id(item[1]),
                         )
-                        for _, (k, v) in zip(range(self.maxsize), value.items())
+                        for item in items
                     ],
                     "size": len(value),
                 }
                 if level > 0:
                     to_capture = chain(
-                        [(k,level - 1) for _, (k, _) in zip(range(self.maxsize), value.items())],
-                        [(v,level - 1) for _, (_, v) in zip(range(self.maxsize), value.items())]
+                        [(item[0],level - 1) for item in items],
+                        [(item[1],level - 1) for item in items],
                     )
                 else:
                     to_capture = []
@@ -112,14 +148,11 @@ class CaptureContext:
                 data = {
                     "id": _id, 
                     "type": _qualname(_type),
-                    "elements": [
-                        id(v)
-                        for _, v in zip(range(self.maxsize), value)
-                    ],
+                    "elements": [id(v) for v in value[:self.maxsize]],
                     "size": len(value),
                 }
                 if level > 0:
-                    to_capture = [(v,level - 1) for _, v in zip(range(self.maxsize), value)]
+                    to_capture = [(v,level - 1) for v in value[:self.maxsize]]
                 else:
                     to_capture = []
 
@@ -137,7 +170,7 @@ class CaptureContext:
             },
         }
 
-        to_capture = [(id(v),v) for v in zip(range(self.maxfields), fields.values())]
+        to_capture = [(v, level - 1) for v in zip(range(self.maxfields), fields.values())]
 
         if len(fields) > self.maxfields:
             data["notCapturedReason"] = "fieldCount"
@@ -145,16 +178,16 @@ class CaptureContext:
         return (data, to_capture)
 
     def capture(self):
-        while self.capturedSize < 500 and len(self.to_capture) > 0:
+        while self.capturedSize < self.maxobjects and len(self.to_capture) > 0:
             (obj,level) = self.to_capture.pop()
             _id = id(obj)
             (captured, to_capture) = self.capture_value(_id, obj, level)
 
             self.captured[_id] = captured
-            for (to_capture_obj,level) in to_capture:
-                to_capture_id = id(to_capture_obj)
+            for obj_and_level in to_capture:
+                to_capture_id = id(obj_and_level[0])
                 if to_capture_id not in self.captured:
-                    self.to_capture.append((to_capture_obj,level))
+                    self.to_capture.append(obj_and_level)
 
             self.capturedSize += 1
         
@@ -181,6 +214,7 @@ class CaptureContext:
     def capture_thread(self):
         thread = threading.current_thread()
         return dict(
+            fid = id(self.frame), 
             tid= thread.ident,
             pid= os.getpid()
         )
@@ -194,54 +228,6 @@ class CaptureContext:
             stack = self.capture_stack(),
             **self.capture_thread()
         )
-
-def _has_safe_dict(_type):
-    # type: (Type) -> bool
-    try:
-        return type(object.__getattribute__(_type, "__dict__").get("__dict__")) is GetSetDescriptor
-    except AttributeError:
-        return False
-
-
-def _maybe_slots(obj):
-    # type: (Any) -> Union[Tuple[str], List[str]]
-    try:
-        slots = object.__getattribute__(obj, "__slots__")
-        if isinstance(slots, str):
-            return (slots,)
-        return slots
-    except AttributeError:
-        return []
-
-def _slots(_type):
-    # type: (Type) -> Set[str]
-    return {_ for cls in object.__getattribute__(_type, "__mro__") for _ in _maybe_slots(cls)}
-
-def _get_slots(obj):
-    # type: (Any) -> Set[str]
-    """Get the object's slots."""
-    return _slots(type(obj))
-
-def _safe_getattr(obj, name):
-    # type: (Any, str) -> Any
-    try:
-        return object.__getattribute__(obj, name)
-    except Exception as e:
-        return e
-
-def _safe_dict(o):
-    # type: (Any) -> Dict[str, Any]
-    if _has_safe_dict(type(o)):
-        return object.__getattribute__(o, "__dict__")
-    raise AttributeError("No safe __dict__ attribute")
-
-def get_fields(obj):
-    # type: (Any) -> Dict[str, Any]
-    try:
-        return _safe_dict(obj)
-    except AttributeError:
-        # Check for slots
-        return {s: _safe_getattr(obj, s) for s in _get_slots(obj)}
 
 def capture(frame: FrameType = None):
     context = CaptureContext(frame or sys._getframe(1))
