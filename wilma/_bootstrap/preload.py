@@ -1,10 +1,12 @@
 import atexit
+import json
 import logging
 import os
 import sys
 from contextlib import contextmanager
 from pathlib import Path
 
+import run_module  # noqa
 from ddtrace.debugging._debugger import DebuggerModuleWatchdog
 
 from wilma._config import wilmaenv
