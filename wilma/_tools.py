@@ -52,9 +52,9 @@ def watch(name: str, value: t.Any):
     weakref.finalize(value, lambda name: _watches.pop(name,None) , name)
 
 
-def capture():
+def capture(stack_depth:int=1):
     frame = sys._getframe(4) #get caller frame
-    context = CaptureContext(frame)
+    context = CaptureContext(frame, stack_depth)
     for name,w in _watches:
         context.add_watch(name, w)
     context.capture()

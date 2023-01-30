@@ -1,9 +1,11 @@
+import inspect
 from itertools import chain, islice
 import os
 import sys
 import threading
 from types import FrameType
 from typing import (Any, Dict, Type)
+import uuid
 from ddtrace.debugging._encoding import (_get_fields, _qualname)
 from ddtrace.internal.compat import BUILTIN_CONTAINER_TYPES
 from ddtrace.internal.compat import BUILTIN_SIMPLE_TYPES
@@ -19,8 +21,11 @@ MAXLEN = 255
 MAXFIELDS = 20
 MAXOBJECTS = 500
 
+CONTAINER_TYPES = frozenset([frozenset]) | BUILTIN_CONTAINER_TYPES 
+
 class CaptureContext:
-    def __init__(self, frame: FrameType=None, level=MAXLEVEL, maxlen=MAXLEN, maxsize=MAXSIZE, maxfields=MAXFIELDS, maxobjects=MAXOBJECTS):
+    def __init__(self, frame: FrameType=None, stack_depth=1, level=MAXLEVEL, maxlen=MAXLEN, maxsize=MAXSIZE, maxfields=MAXFIELDS, maxobjects=MAXOBJECTS):
+        self._id = str(uuid.uuid4())
         self.frame = frame or sys._getframe(1)
         self.maxlevel = level
         self.maxlen = maxlen
@@ -28,10 +33,27 @@ class CaptureContext:
         self.maxfields = maxfields
         self.maxobjects = maxobjects
 
-        self._locals = {name: id(item) for (name,item) in frame.f_locals.items()}
         self._watches = {}
+        self.to_capture = []
+        self._stack = []
 
-        self.to_capture = [(item, level) for item in frame.f_locals.values()]
+        current_frame = self.frame
+        h = 0
+        while current_frame and stack_depth > 0:
+            stack_frame = {
+                "frame": current_frame,
+                "locals": {name: id(item) for (name,item) in current_frame.f_locals.items()}
+            }
+            self.to_capture.extend([(item, level) for item in current_frame.f_locals.values()])
+            self._stack.append(stack_frame)
+            current_frame = current_frame.f_back
+            stack_depth -= 1
+            h += 1
+
+        while current_frame and h < maxsize:
+            self._stack.append({"frame": current_frame})
+            current_frame = current_frame.f_back
+            h += 1
 
         self.captured = {}
         self.capturedSize = 0
@@ -67,7 +89,7 @@ class CaptureContext:
             )
 
             return (val, [])
-        if _type in BUILTIN_CONTAINER_TYPES:
+        if _type in CONTAINER_TYPES:
             if level < 0:
                 return ({
                     "id": _id, 
@@ -100,15 +122,16 @@ class CaptureContext:
                     to_capture = []
 
             else:
+                items = list(islice(value,self.maxsize))
                 # Sequence
                 data = {
                     "id": _id, 
                     "type": _qualname(_type),
-                    "elements": [id(v) for v in value[:self.maxsize]],
+                    "elements": [id(v) for v in items],
                     "size": len(value),
                 }
                 if level > 0:
-                    to_capture = [(v,level - 1) for v in value[:self.maxsize]]
+                    to_capture = [(v,level - 1) for v in items]
                 else:
                     to_capture = []
 
@@ -151,20 +174,19 @@ class CaptureContext:
         self.to_capture.clear()
 
     def capture_stack(self):
-        frame = self.frame
         stack = []
-        h = 0
-        while frame and h < self.maxsize:
+        for stack_frame in self._stack:
+            frame = stack_frame["frame"]
             code = frame.f_code
             stack.append(
                 {
                     "fileName": code.co_filename,
                     "function": code.co_name,
                     "lineNumber": frame.f_lineno,
+                    "code": inspect.getsourcelines(frame),
+                    "locals": stack_frame.get("locals",None)
                 }
             )
-            frame = frame.f_back
-            h += 1
         return stack
 
     def capture_thread(self):
@@ -177,15 +199,16 @@ class CaptureContext:
 
     def to_json(self):
         return dict(
+            id = self._id,
             type = "snapshot",
-            locals = self._locals,
+            locals = self._stack[0].get("locals",{}),
             watches = self._watches,
             objects = list(self.captured.values()),
             stack = self.capture_stack(),
             **self.capture_thread()
         )
 
-def capture(frame: FrameType = None):
-    context = CaptureContext(frame or sys._getframe(1))
+def capture(frame: FrameType = None, stack_depth: int = 1):
+    context = CaptureContext(frame or sys._getframe(1), stack_depth)
     context.capture()
     return context.to_json()
