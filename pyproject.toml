@@ -9,10 +9,10 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-ddtrace = "^1.5"
+ddtrace = "^1.9"
 python = "^3.7"
 toml = "^0.10.2"
-envier = "^0.3.0"
+envier = "^0.4"
 bytecode = "^0.13.0"
 watchdog = "^2.1.9"
 
