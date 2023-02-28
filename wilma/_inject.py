@@ -58,12 +58,10 @@ class Probe:
 
 def _wilma(probe: Probe) -> None:
     # If we get here, we are guaranteed a frame and its parent.
-    frame = t.cast(FrameType, inspect.currentframe()).f_back
     try:
-        probe(t.cast(FrameType, frame))
-    except Exception:
-        print(f"Error while executing {probe}")
-        raise
+        probe(sys._getframe(1))
+    except Exception as e:
+        print(f"Error while executing {probe}: {e}")
 
 
 def on_import(module: ModuleType) -> None:
