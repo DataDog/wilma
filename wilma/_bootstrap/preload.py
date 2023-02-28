@@ -6,12 +6,11 @@ import sys
 from contextlib import contextmanager
 from pathlib import Path
 
-import run_module  # noqa
 from ddtrace.debugging._debugger import DebuggerModuleWatchdog
 
+import wilma._bootstrap.run_module  # noqa
 from wilma._config import wilmaenv
 from wilma._inject import on_config_changed
-from wilma._tools import _register_capture_output
 
 
 LOGGER = logging.getLogger(__name__)
@@ -31,12 +30,13 @@ class WilmaException(Exception):
 
 
 class FileAppender(object):
-    def __init__(self, path:Path):
+    def __init__(self, path: Path):
         self.path = path
         self.stream = self.path.open("a")
 
     def __call__(self, capture):
         self.stream.write(json.dumps(capture) + "\n")
+
 
 try:
     # Set verbosity level
@@ -54,7 +54,12 @@ try:
     wilmaenv.wilmaprefix.mkdir(exist_ok=True)
 
     # Register capture output
-    _register_capture_output(FileAppender(wilmaenv.captures_path))
+    try:
+        from wilma._capture import register_capture_output
+
+        register_capture_output(FileAppender(wilmaenv.captures_path))
+    except ImportError:
+        pass
 
     # Listen for changes to the Wilma file
     wilmaenv.observe(on_config_changed)
@@ -62,6 +67,6 @@ try:
     # Initial configuration
     on_config_changed(wilmaenv.wilmaconfig)
 
-
-except WilmaException:
+except WilmaException as e:
+    print(f"Cannot initialise Wilma: {e}", file=sys.stderr)
     pass

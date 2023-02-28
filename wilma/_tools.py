@@ -3,10 +3,16 @@ import ctypes
 import sys
 import traceback
 import typing as t
-import weakref
 
 from wilma._inject import Probe
-from wilma._capture import CaptureContext
+
+
+class ToolNotAvailable:
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, *args, **kwargs):
+        print(f"Wilma tool '{self.name}' is not available.", file=sys.stderr)
 
 
 @contextlib.contextmanager
@@ -40,24 +46,13 @@ def framestack(message: t.Optional[str] = None) -> None:
         print(message)
 
 
-_watches = {}
-_captureOutputs: t.List[t.Callable] = []
-
-def _register_capture_output(callback: t.Callable):
-    _captureOutputs.append(callback)
-
-
-def watch(name: str, value: t.Any):
-    _watches[name] = value
-    weakref.finalize(value, lambda name: _watches.pop(name,None) , name)
+try:
+    from wilma._capture import capture
+except ImportError:
+    capture = ToolNotAvailable("capture")
 
 
-def capture():
-    frame = sys._getframe(4) #get caller frame
-    context = CaptureContext(frame)
-    for name,w in _watches:
-        context.add_watch(name, w)
-    context.capture()
-    capture = context.to_json()
-    for output in _captureOutputs:
-        output(capture)
+try:
+    from wilma._capture import watch
+except ImportError:
+    watch = ToolNotAvailable("watch")
