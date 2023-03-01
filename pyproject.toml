@@ -1,32 +1,121 @@
-[tool.poetry]
-name = "wilma"
-version = "0.2.0"
-description = "A smarter-than-caveman debugging tool"
-authors = ["Gabriele Tornetta <gabriele.tornetta@datadoghq.com>"]
-license = "GPL3+"
-packages = [
-    {include = "wilma"},
+[project]
+authors = [
+  {name = "Gabriele N. Tornetta", email = "gabriele.tornetta@datadoghq.com"},
 ]
+description = "A smarter-than-caveman debugging tool"
+license = "MIT"
+name = "wilma"
+readme = "README.md"
 
-[tool.poetry.dependencies]
-ddtrace = "^1.9"
-python = "^3.7"
-toml = "^0.10.2"
-envier = "^0.4"
-bytecode = "^0.13.0"
-watchdog = "^2.1.9"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+]
+keywords = ["debugging", "testing", "development"]
 
-[tool.poetry.dev-dependencies]
-pytest = "^6.2.5"
+dependencies = [
+  "ddtrace~=1.9",
+  "toml~=0.10.2",
+  "envier~=0.4",
+  "bytecode~=0.13.0",
+  "watchdog~=2.1.9",
+]
+requires-python = ">=3.7"
 
-[tool.poetry.scripts]
+dynamic = ["version"]
+
+[project.urls]
+documentation = "https://TODO"
+homepage = "https://github.com/DataDog/wilma"
+issues = "https://github.com/DataDog/wilma/issues"
+repository = "https://github.com/DataDog/wilma"
+
+[project.scripts]
 wilma = "wilma.__main__:main"
 
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.envs.tests]
+dependencies = [
+  "pytest>=6.2.5",
+  "pytest-cov>=3.0.0",
+]
+template = "tests"
+
+[tool.hatch.envs.tests.scripts]
+tests = "pytest {args} tests/"
+
+[[tool.hatch.envs.tests.matrix]]
+python = ["3.7", "3.8", "3.9", "3.10", "3.11"]
+
+[tool.hatch.envs.checks]
+dependencies = [
+  "mypy~=0.770",
+  "flake8~=5.0.4",
+  "flake8-annotations~=2.9.1",
+  "flake8-black",
+  "flake8-bugbear~=22.9.23",
+  "flake8-docstrings~=1.6.0",
+  "flake8-import-order~=0.18.1",
+  "flake8-isort~=5.0.0",
+]
+python = "3.10"
+template = "checks"
+
+[tool.hatch.envs.checks.scripts]
+linting = "flake8 {args} wilma/ tests/ "
+typing = "mypy --show-error-codes --install-types --non-interactive {args} wilma/ tests/"
+
+[tool.hatch.envs.coverage]
+dependencies = [
+  "coverage[toml]",
+  "codecov",
+]
+python = "3.10"
+template = "coverage"
+
+[tool.hatch.envs.coverage.scripts]
+cov = "coverage xml --fail-under=0"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/.github",
+  "/docs",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["wilma"]
+
+[tool.coverage.run]
+branch = true
+source = ["wilma"]
+
+[tool.coverage.report]
+show_missing = true
 
 [tool.isort]
 force_single_line = true
 lines_after_imports = 2
 profile = "black"
+
+[tool.mypy]
+exclude = []
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+ignore_errors = true
+module = []
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling", "hatch-vcs"]

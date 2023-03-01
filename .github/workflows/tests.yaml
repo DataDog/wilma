@@ -22,9 +22,8 @@ jobs:
           python-version: ${{ matrix.python }}-dev
 
       - name: Install dependencies
-        run: pip install poetry
+        run: pip install hatch
 
       - name: Run tests
         run: |
-          poetry install
-          poetry run pytest
+          hatch -e "tests.py${{ matrix.python }}" run tests
