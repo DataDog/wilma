@@ -1,13 +1,17 @@
 import sys
 from pathlib import Path
 from subprocess import PIPE
-from subprocess import check_output
+from subprocess import check_output as _check_output
 from threading import Thread
 from time import sleep
 
 
 HERE = Path(__file__).parent
 EXE = "wilma.exe" if sys.platform == "win32" else "wilma"
+
+
+def check_output(*args, **kwargs):
+    return _check_output(*args, **kwargs).replace(b"\r", b"").decode()
 
 
 def test_probe_main():
@@ -19,7 +23,7 @@ def test_probe_main():
 
     assert (
         result
-        == b"""I'm not telling you the secret!
+        == """I'm not telling you the secret!
 secret="Wilma rox!"
 I'm not telling you the class secret!
 class secret="I'm a class secret!"
@@ -43,7 +47,7 @@ def test_tools_locals():
         ],
         stderr=PIPE,
         cwd=str(HERE),
-    ).decode()
+    )
 
     assert (
         result
@@ -68,7 +72,7 @@ def test_tools_framestack():
         ],
         stderr=PIPE,
         cwd=str(HERE),
-    ).decode()
+    )
 
     for line in (
         "line 5, in foo (top-most frame last)",
@@ -112,7 +116,7 @@ def test_wilmafile_watch(tmp_path):
         ],
         stderr=PIPE,
         cwd=str(HERE),
-    ).decode()
+    )
 
     writer.join()
 
