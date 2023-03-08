@@ -1,7 +1,16 @@
 import os
 import sys
 
+
+# Keep the runpy module to preserve the run module hooks.
+LOADED_MODULES = set(sys.modules.keys()) | {"sitecustomize", "runpy"}
+
 import preload  # noqa
+
+
+# Make sure to unload all that was loaded during the preload phase
+for module in set(sys.modules.keys()) - LOADED_MODULES:
+    del sys.modules[module]
 
 # Check for and import any sitecustomize that would have normally been used
 bootstrap_dir = os.path.abspath(os.path.dirname(__file__))

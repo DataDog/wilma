@@ -1,4 +1,3 @@
-import inspect
 import sys
 import typing as t
 from contextlib import contextmanager
@@ -12,6 +11,7 @@ from ddtrace.internal.injection import eject_hook
 from ddtrace.internal.injection import inject_hook
 from ddtrace.internal.module import origin
 
+import wilma
 from wilma._deps import dependencies
 
 
@@ -22,6 +22,11 @@ def cwd():
         yield
     finally:
         sys.path.pop(0)
+
+
+class WilmaModuleWatchdog(DebuggerModuleWatchdog):
+    # DEV: This subclass is meant to avoid clashes with the superclass.
+    pass
 
 
 class Probe:
@@ -41,7 +46,7 @@ class Probe:
         self.imports = imports or []
 
         self._statement = "\n".join(
-            ("\n".join(f"import {imp}" for imp in ("wilma", *self.imports)), statement)
+            ("\n".join(f"import {imp}" for imp in self.imports), statement)
         )
 
         self.__all__.add(self)
@@ -53,7 +58,9 @@ class Probe:
         return f"WilmaProbe({self.filename}:{self.lineno} -> {self.statement})"
 
     def __call__(self, frame: FrameType) -> None:
-        return exec(self._statement, frame.f_globals, frame.f_locals)
+        return exec(
+            self._statement, dict(wilma=wilma, **frame.f_globals), frame.f_locals
+        )
 
 
 def _wilma(probe: Probe) -> None:
@@ -104,13 +111,13 @@ def on_config_changed(config) -> None:
                     ) == str(Path(loc).resolve()):
                         on_import(sys.modules["__main__"])
                     else:
-                        DebuggerModuleWatchdog.register_origin_hook(loc, on_import)
+                        WilmaModuleWatchdog.register_origin_hook(loc, on_import)
                 except ValueError:
                     print("wilma: source file '%s' not found. Skipping probe." % loc)
 
     for injected_probe in Probe.__injected__ - Probe.__all__:
         # These probes need to be removed
-        module = DebuggerModuleWatchdog.get_by_origin(injected_probe.filename)
+        module = WilmaModuleWatchdog.get_by_origin(injected_probe.filename)
         if module is None:
             if (
                 "__main__" in sys.modules

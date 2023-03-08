@@ -1,3 +1,4 @@
+import shutil
 import sys
 from pathlib import Path
 from subprocess import PIPE
@@ -5,9 +6,17 @@ from subprocess import check_output as _check_output
 from threading import Thread
 from time import sleep
 
+import pytest
+
 
 HERE = Path(__file__).parent
 EXE = "wilma.exe" if sys.platform == "win32" else "wilma"
+
+
+@pytest.fixture(autouse=True)
+def remove_wilma_dir_after_test():
+    yield
+    shutil.rmtree((HERE / ".wilma").resolve(), ignore_errors=True)
 
 
 def check_output(*args, **kwargs):
@@ -98,6 +107,21 @@ def test_wilmafile_watch(tmp_path):
     wilmafile_content = (HERE / "watch.toml").read_text()
     wilmafile = tmp_path / "watch.toml"
     wilmafile.write_text(wilmafile_content)
+
+    # Run wilma once to install the dependencies. This ensures that the actual
+    # test run doesn't have to wait for the dependencies to be installed.
+    check_output(
+        [
+            EXE,
+            "-c",
+            str(wilmafile),
+            sys.executable,
+            "-c",
+            "exit(0)",
+        ],
+        stderr=PIPE,
+        cwd=str(HERE),
+    )
 
     writer = Thread(
         target=lambda: sleep(1)

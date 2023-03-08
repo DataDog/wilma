@@ -19,13 +19,6 @@ classifiers = [
 ]
 keywords = ["debugging", "testing", "development"]
 
-dependencies = [
-  "ddtrace~=1.9",
-  "toml~=0.10.2",
-  "envier~=0.4",
-  "bytecode~=0.13.0",
-  "watchdog~=2.1.9",
-]
 requires-python = ">=3.7"
 
 dynamic = ["version"]
@@ -46,6 +39,9 @@ allow-direct-references = true
 dependencies = [
   "pytest>=6.2.5",
   "pytest-cov>=3.0.0",
+  "toml~=0.10.2",
+  "envier~=0.4",
+  "watchdog~=2.1.9",
 ]
 template = "tests"
 
