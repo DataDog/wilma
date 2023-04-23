@@ -11,6 +11,9 @@ from ddtrace.debugging.safety import get_fields
 from ddtrace.internal.compat import BUILTIN_CONTAINER_TYPES
 from ddtrace.internal.compat import BUILTIN_SIMPLE_TYPES
 
+from wilma._config import wilmaenv
+from wilma._writer import JsonFileWriter
+
 
 NoneType = type(None)
 GetSetDescriptor = type(type.__dict__["__dict__"])  # type: ignore[index]
@@ -198,11 +201,7 @@ class CaptureContext:
 
 
 _watches = {}
-_captureOutputs: t.List[t.Callable] = []
-
-
-def register_capture_output(callback: t.Callable):
-    _captureOutputs.append(callback)
+_capture_writers: t.List[t.Callable] = [JsonFileWriter(wilmaenv.captures_path)]
 
 
 def watch(name: str, value: t.Any):
@@ -217,5 +216,5 @@ def capture():
         context.add_watch(name, w)
     context.capture()
     capture = context.to_json()
-    for output in _captureOutputs:
+    for output in _capture_writers:
         output(capture)
