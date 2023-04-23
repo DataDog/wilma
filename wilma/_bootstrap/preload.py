@@ -1,5 +1,4 @@
 import atexit
-import json
 import logging
 import os
 import site
@@ -74,15 +73,6 @@ class WilmaException(Exception):
     pass
 
 
-class FileAppender(object):
-    def __init__(self, path: Path):
-        self.path = path
-        self.stream = self.path.open("a")
-
-    def __call__(self, capture):
-        self.stream.write(json.dumps(capture) + "\n")
-
-
 try:
     # Set verbosity level
     if wilmaenv.verbose:
@@ -97,14 +87,6 @@ try:
 
     # Create the Wilma prefix directory
     wilmaenv.wilmaprefix.mkdir(exist_ok=True)
-
-    # Register capture output
-    try:
-        from wilma._capture import register_capture_output
-
-        register_capture_output(FileAppender(wilmaenv.captures_path))
-    except ImportError:
-        pass
 
     # Listen for changes to the Wilma file
     wilmaenv.observe(on_config_changed)
