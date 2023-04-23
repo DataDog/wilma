@@ -104,4 +104,28 @@ original value.
 > explicitly to the imports.
 
 
+## Dependencies
+
+You can also inject extra dependencies that you perhaps would include in your 
+project only for debugging purposes. For example, if you want to use the ``rich``
+library to pretty-print, you can add it to the `dependencies` section of the
+configuration file:
+
+~~~toml
+imports = [ "rich as r" ]
+
+[dependencies]
+rich = "latest"
+
+[probes]
+"test.py:3" = "r.print(f'secret=\"{secret}\"')"
+~~~
+
+In this example, we import ``rich`` and give it the alias ``r``. We then add
+``rich`` to the dependencies that we want Wilma to install (assuming that
+``rich`` is not already available from the target environment). In this case we
+request the latest version, but the string after the `=` sign can be any valid
+version specifier, e.g. ``~=10.4.0``.
+
+
 [caveman]: https://medium.com/@firhathidayat/the-caveman-debugging-ab8f7151415f
