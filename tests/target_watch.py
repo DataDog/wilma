@@ -9,7 +9,7 @@ def say(word="default"):
 def target():
     for _ in range(15):
         say()
-        sleep(0.1)
+        sleep(0.2)
 
 
 thread = Thread(target=target)

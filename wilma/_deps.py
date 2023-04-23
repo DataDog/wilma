@@ -61,6 +61,7 @@ class Dependencies:
                 env["PYTHONPATH"] = pythonpath
             else:
                 env["PYTHONPATH"] = ""
+            # TODO: Check for errors
             check_output(args, env=env)
 
             self.__installed__.update(deps)
